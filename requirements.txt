@@ -1,0 +1,13 @@
+torch
+torchvision
+open_clip_torch
+gradio
+pandas
+numpy
+scipy
+scikit-learn
+pillow
+requests
+tqdm
+matplotlib
+joblib
