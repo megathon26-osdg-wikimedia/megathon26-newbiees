@@ -1,5 +1,0 @@
-venv/
-data/
-*.npy
-*.joblib
-__pycache__/
