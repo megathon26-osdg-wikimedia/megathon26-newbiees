@@ -1,73 +1,79 @@
 # Commons Category Suggester
 
+This README only covers setup and how to run the code.
+
 ## Requirements
 
-- Python 3.10 or newer
-- Internet access (for the Commons download and the first-time model download of about 600 MB)
-- A GPU is optional. On CPU, embedding about 2,000 images takes roughly 10 to 15 minutes.
+- Python 3.13 (the pinned versions in `requirements.txt` were installed on 3.13)
+- Internet access for the first run (Commons API, and the CLIP weights from the Hugging Face Hub)
+- No GPU needed; the pinned PyTorch build is CPU-only (Linux and Windows)
 
 ## Setup
 
+Run all commands from the repository root (the scripts use the relative folder `data/`).
+
 ```
-git clone https://github.com/IIIT-ECell/megathon26-newbiees.git
-cd megathon26-newbiees
 python3 -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Check the install:
+## Run the pipeline
+
+Run the steps in this order. Each step writes files into `data/`.
+
+| Step | Command | Output |
+|------|---------|--------|
+| 1. Download images and metadata | `python download_data.py` | `data/images/`, `data/metadata.csv`, `data/graph_edges.json` |
+| 2. Embed images with CLIP | `python embed_images.py` | `data/Z.npy`, `data/Z_ids.npy` |
+| 3. Clean labels, split by time, remove near-duplicates | `python prepare_labels.py` | `data/clean.csv`, `Y.npy`, `Zc.npy`, `cats.json` |
+| 4. Fetch category parents (2 levels) | `python fetch_graph.py` | `data/graph_edges_full.json` |
+| 5. Train the head, text index and fusion | `python train.py` | `data/suggester.joblib` |
+| 6. Evaluate on the test split | `python evaluate.py` | printed tables, `data/results_*.csv`, `data/results.png` |
+
+Quick checks before the full download:
 
 ```
-python -c "import torch, open_clip; print('ok')"
+python download_data.py check    # verifies the seed category names, downloads nothing
+python download_data.py test     # 2 categories, 10 images each
+python embed_images.py test      # embeds 32 images, saves nothing
 ```
 
-## Run
+The download can be interrupted with Ctrl+C and re-run; images already saved are skipped.
 
-Run every command from the project folder, with the virtual environment active. Run the steps in this order, because each step uses the files saved by the previous one. All data is downloaded and generated into a `data/` folder; nothing needs to be downloaded separately.
+## Run the demo
 
-1. Download the data (about 30 to 60 minutes):
-   ```
-   python download_data.py test     # quick check: 2 categories, 10 images each
-   python download_data.py
-   ```
-2. Fetch the category graph (optional, about 5 to 10 minutes):
-   ```
-   python fetch_graph.py
-   ```
-3. Compute image embeddings:
-   ```
-   python embed_images.py test      # quick check on 32 images, saves nothing
-   python embed_images.py
-   ```
-4. Clean labels and split the data:
-   ```
-   python prepare_labels.py
-   ```
-5. Train the model:
-   ```
-   python train.py
-   ```
-6. Evaluate:
-   ```
-   python evaluate.py
-   python evaluate.py --robust      # also runs the image-quality tests
-   python latency.py                # optional: speed measurements
-   ```
-7. Start the demo:
-   ```
-   python demo_app.py
-   ```
-   Then open http://127.0.0.1:7860 in a browser.
+Steps 1 to 5 must have been run first.
 
-If you change `prepare_labels.py` or `common.py`, re-run steps 4 to 6. Embeddings (step 3) only need to be recomputed when the images change.
+```
+python demo_app.py
+```
 
-## Troubleshooting
+Then open http://127.0.0.1:7860 in a browser. Upload an image (a title is optional),
+click "Suggest categories", tick the correct suggestions and click "Save my review".
+Accepted reviews are stored in `data/feedback/` and reloaded the next time the demo starts.
+Stop the demo with Ctrl+C.
 
-- `FileNotFoundError: data/metadata.csv`: run the scripts from the project folder, and make sure step 1 finished (it prints a line starting with `Done.`).
-- `ModuleNotFoundError`: the virtual environment is not active. Run `source venv/bin/activate`.
-- Out of memory during embedding: lower `bs=32` to `bs=8` in `embed_paths` in `clip_utils.py`.
-- Download errors or `429`: the scripts wait and retry. Do not remove the pauses. Turn off any VPN if connections time out.
+## Optional scripts
+
+| Command | Purpose |
+|---------|---------|
+| `python evaluate.py --robust` | Blur / low-resolution / JPEG robustness table (needs CLIP, a few minutes) |
+| `python eval_by_type.py` | Results per category type |
+| `python eval_resolution.py` | Results by simulated image resolution |
+| `python latency.py` | Time for one suggestion and index size |
+| `python throughput.py` | Images per second for batch sizes 1, 8 and 32 |
+| `python tier_counts.py` | Size of the head / torso / tail tiers |
+| `python cutoff_test.py` | Optional. Chooses the demo's display cutoff; without `data/cutoff.json` the demo uses 0.05. Needs 15-20 photos outside all categories in `data/outside/` |
+| `python language_test.py` | Title scorer on non-English titles; needs `data/lang_test.csv` (columns `image_path,title,language,labels`) |
+| `python retrain_from_feedback.py` | Adds accepted demo reviews to the training split and retrains |
+
+## Notes
+
+- The seed categories are listed in `SEEDS` in `download_data.py`. If you add a seed,
+  add its type to `SEED_TYPE` in `category_types.py` as well.
+- The dataset is not included in the repository. Step 1 downloads it from the Commons API.
+- Images used are openly licensed Commons files; each file's licence is saved in `data/metadata.csv`.
 
 ## License
 
