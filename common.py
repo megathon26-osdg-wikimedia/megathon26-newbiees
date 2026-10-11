@@ -23,7 +23,7 @@ JUNK_WORDS = [
     "pictures by", "by camera", "by year", "by country", "by photographer",
     "by date", "wikimedia", "wikipedia", "commons", "needing", "unidentified",
     "watermark", "uploads", "scans", "flickr", "pictures of the day",
-    "wiki loves", "cc-", "pd-",
+    "wiki loves", "cc-", "pd-", "photos by",
 ]
 DATE_RE = re.compile(r"^(\d{4}|\w+ \d{4}|\d{1,2} \w+ \d{4})$")
 

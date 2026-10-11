@@ -7,7 +7,7 @@ import pandas as pd
 
 from common import DATA, SEEDS, is_junk
 
-N_MIN = 8        # a category needs this many TRAIN images to be kept
+N_MIN = 5        # a category needs this many TRAIN images to be kept
 DUP = 0.97       # val/test image this similar to a train image = near-duplicate
 
 meta = pd.read_csv(DATA / "metadata.csv", keep_default_na=False)

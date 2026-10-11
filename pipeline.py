@@ -31,8 +31,15 @@ class Suggester:
     def fuse(self, comp):
         return apply_fusion(self.clf, [comp[k] for k in COMP])
 
-    def suggest(self, z, text="", k=10):
-        """z: (1, 512) embedding. Returns [(category, score), ...] most specific first."""
+    def suggest(self, z, text="", k=10, cutoff=0.0):
+        """z: (1, 512) embedding. Returns [(category, score), ...] most specific first.
+        A parent category is hidden only when a narrower category in the list scores at
+        least `cutoff`. With the default cutoff=0.0 this is the original behaviour."""
         S = self.fuse(self.components(z, [text]))[0]
-        order = suppress_ancestors(np.argsort(-S)[:k], self.A)
+        order = np.argsort(-S)[:k]
+        strong = order[S[order] >= cutoff]               # picks confident enough to hide a parent
+        anc = self.A[np.ix_(order, strong)]              # anc[i, j] = 1: order[i] is an ancestor of strong[j]
+        desc = self.A[np.ix_(strong, order)].T           # desc[i, j] = 1: strong[j] is an ancestor of order[i]
+        drop = (anc * (1 - desc)).any(axis=1)            # (1 - desc) ignores 2-cycles
+        order = order[~drop]
         return [(self.cats[i], float(S[i])) for i in order]
